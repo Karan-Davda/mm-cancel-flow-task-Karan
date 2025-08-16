@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS cancellations (
   roles_applied_bucket TEXT CHECK (roles_applied_bucket IN ('0', '1-5', '6-20', '20+')),
   companies_emailed_bucket TEXT CHECK (companies_emailed_bucket IN ('0', '1-5', '6-20', '20+')),
   interviews_bucket TEXT CHECK (interviews_bucket IN ('0', '1-2', '3-5', '5+')),
+  feedback TEXT CHECK (
+    (feedback IS NULL) 
+    OR (char_length(trim(feedback)) BETWEEN 25 AND 1000)
+  ),
   reason TEXT,
   accepted_downsell BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

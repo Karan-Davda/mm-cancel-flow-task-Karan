@@ -40,7 +40,7 @@ export default function FoundStep1({
                      interviews_bucket !== null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-20 md:pb-0">
       {/* Header with confetti emoji */}
       <div className="text-left">
         <div className="flex items-center gap-3 mb-2">
@@ -91,10 +91,34 @@ export default function FoundStep1({
       />
 
       {/* Divider */}
-      <hr className="border-gray-300 my-4" />
+      <hr className="border-gray-300 my-3 hidden md:block" />
 
-      {/* Continue Button */}
-      <div className="pt-4">
+      {/* Continue Button - Fixed at very bottom for mobile only */}
+      <div className="block md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 mb-0 z-[9999] w-full">
+        <div className="w-full">
+          <button
+            onClick={onContinue}
+            disabled={!canContinue || saving}
+            className={`w-full px-8 py-4 font-medium rounded-lg transition-all duration-200 disabled:cursor-not-allowed font-dm-sans text-base ${
+              canContinue && !saving
+                ? 'bg-[#4ABF71] text-white hover:bg-[#3da562]'
+                : 'bg-gray-300 text-gray-500'
+            }`}
+          >
+            {saving ? 'Saving...' : 'Continue'}
+          </button>
+          
+          {/* Error Message */}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600 font-dm-sans">{error}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Continue Button - Desktop version (inline) */}
+      <div className="hidden md:block pt-4">
         <button
           onClick={onContinue}
           disabled={!canContinue || saving}
