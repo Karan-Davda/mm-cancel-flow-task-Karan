@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS cancellations (
   subscription_id UUID REFERENCES subscriptions(id) ON DELETE CASCADE,
   downsell_variant TEXT NOT NULL CHECK (downsell_variant IN ('A', 'B')),
   found_job BOOLEAN,
+  found_with_mm BOOLEAN,
+  roles_applied_bucket TEXT CHECK (roles_applied_bucket IN ('0', '1-5', '6-20', '20+')),
+  companies_emailed_bucket TEXT CHECK (companies_emailed_bucket IN ('0', '1-5', '6-20', '20+')),
+  interviews_bucket TEXT CHECK (interviews_bucket IN ('0', '1-2', '3-5', '5+')),
   reason TEXT,
   accepted_downsell BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

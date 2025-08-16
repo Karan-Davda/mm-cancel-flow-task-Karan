@@ -5,14 +5,22 @@ import { supabaseServer } from '@/lib/supabaseServer'
 interface ProgressRequest {
   cancellation_id?: string
   patch: {
-    found_job: boolean
+    found_job?: boolean
+    found_with_mm?: boolean
+    roles_applied_bucket?: '0' | '1-5' | '6-20' | '20+'
+    companies_emailed_bucket?: '0' | '1-5' | '6-20' | '20+'
+    interviews_bucket?: '0' | '1-2' | '3-5' | '5+'
   }
 }
 
 interface ProgressResponse {
   cancellationId: string
   saved: {
-    found_job: boolean
+    found_job?: boolean
+    found_with_mm?: boolean
+    roles_applied_bucket?: '0' | '1-5' | '6-20' | '20+'
+    companies_emailed_bucket?: '0' | '1-5' | '6-20' | '20+'
+    interviews_bucket?: '0' | '1-2' | '3-5' | '5+'
   }
 }
 
@@ -29,10 +37,38 @@ export async function POST(request: NextRequest) {
 
     const body: ProgressRequest = await request.json()
     
-    // Validate required fields
-    if (typeof body.patch.found_job !== 'boolean') {
+    // Validate required fields based on what's being updated
+    if (body.patch.found_job !== undefined && typeof body.patch.found_job !== 'boolean') {
       return NextResponse.json(
-        { error: 'found_job must be a boolean' }, 
+        { field: 'found_job', message: 'found_job must be a boolean' }, 
+        { status: 400 }
+      )
+    }
+    
+    if (body.patch.found_with_mm !== undefined && typeof body.patch.found_with_mm !== 'boolean') {
+      return NextResponse.json(
+        { field: 'found_with_mm', message: 'found_with_mm must be a boolean' }, 
+        { status: 400 }
+      )
+    }
+    
+    if (body.patch.roles_applied_bucket !== undefined && !['0', '1-5', '6-20', '20+'].includes(body.patch.roles_applied_bucket)) {
+      return NextResponse.json(
+        { field: 'roles_applied_bucket', message: 'Invalid roles_applied_bucket value' }, 
+        { status: 400 }
+      )
+    }
+    
+    if (body.patch.companies_emailed_bucket !== undefined && !['0', '1-5', '6-20', '20+'].includes(body.patch.companies_emailed_bucket)) {
+      return NextResponse.json(
+        { field: 'companies_emailed_bucket', message: 'Invalid companies_emailed_bucket value' }, 
+        { status: 400 }
+      )
+    }
+    
+    if (body.patch.interviews_bucket !== undefined && !['0', '1-2', '3-5', '5+'].includes(body.patch.interviews_bucket)) {
+      return NextResponse.json(
+        { field: 'interviews_bucket', message: 'Invalid interviews_bucket value' }, 
         { status: 400 }
       )
     }
@@ -49,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     if (body.cancellation_id) {
       // Update existing cancellation
-      const { data: existingCancellation, error: fetchError } = await supabaseServer
+      const { data: existingCancellation, error: fetchError } = await supabaseServer()
         .from('cancellations')
         .select('id')
         .eq('id', body.cancellation_id)
@@ -65,10 +101,17 @@ export async function POST(request: NextRequest) {
 
       cancellationId = existingCancellation.id
 
-      // Update the existing cancellation
-      const { error: updateError } = await supabaseServer
+      // Update the existing cancellation with all provided fields
+      const updateData: any = {}
+      if (body.patch.found_job !== undefined) updateData.found_job = body.patch.found_job
+      if (body.patch.found_with_mm !== undefined) updateData.found_with_mm = body.patch.found_with_mm
+      if (body.patch.roles_applied_bucket !== undefined) updateData.roles_applied_bucket = body.patch.roles_applied_bucket
+      if (body.patch.companies_emailed_bucket !== undefined) updateData.companies_emailed_bucket = body.patch.companies_emailed_bucket
+      if (body.patch.interviews_bucket !== undefined) updateData.interviews_bucket = body.patch.interviews_bucket
+
+      const { error: updateError } = await supabaseServer()
         .from('cancellations')
-        .update({ found_job: body.patch.found_job })
+        .update(updateData)
         .eq('id', cancellationId)
 
       if (updateError) {
@@ -80,7 +123,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Get or create active cancellation
-      let { data: activeCancellation } = await supabaseServer
+      let { data: activeCancellation } = await supabaseServer()
         .from('cancellations')
         .select('id')
         .eq('user_id', mockUserId)
@@ -90,7 +133,7 @@ export async function POST(request: NextRequest) {
 
       if (!activeCancellation) {
         // Get latest subscription for the user
-        const { data: latestSubscription } = await supabaseServer
+        const { data: latestSubscription } = await supabaseServer()
           .from('subscriptions')
           .select('id')
           .eq('user_id', mockUserId)
@@ -98,15 +141,21 @@ export async function POST(request: NextRequest) {
           .limit(1)
           .single()
 
-        // Create new active cancellation
-        const { data: newCancellation, error: createError } = await supabaseServer
+        // Create new active cancellation with all provided fields
+        const insertData: any = {
+          user_id: mockUserId,
+          subscription_id: latestSubscription?.id || null,
+          downsell_variant: 'A'
+        }
+        if (body.patch.found_job !== undefined) insertData.found_job = body.patch.found_job
+        if (body.patch.found_with_mm !== undefined) insertData.found_with_mm = body.patch.found_with_mm
+        if (body.patch.roles_applied_bucket !== undefined) insertData.roles_applied_bucket = body.patch.roles_applied_bucket
+        if (body.patch.companies_emailed_bucket !== undefined) insertData.companies_emailed_bucket = body.patch.companies_emailed_bucket
+        if (body.patch.interviews_bucket !== undefined) insertData.interviews_bucket = body.patch.interviews_bucket
+
+        const { data: newCancellation, error: createError } = await supabaseServer() 
           .from('cancellations')
-          .insert({
-            user_id: mockUserId,
-            subscription_id: latestSubscription?.id || null,
-            downsell_variant: 'A',
-            found_job: body.patch.found_job
-          })
+          .insert(insertData)
           .select('id')
           .single()
 
@@ -120,12 +169,19 @@ export async function POST(request: NextRequest) {
 
         cancellationId = newCancellation.id
       } else {
-        // Update existing active cancellation
+        // Update existing active cancellation with all provided fields
         cancellationId = activeCancellation.id
         
-        const { error: updateError } = await supabaseServer
+        const updateData: any = {}
+        if (body.patch.found_job !== undefined) updateData.found_job = body.patch.found_job
+        if (body.patch.found_with_mm !== undefined) updateData.found_with_mm = body.patch.found_with_mm
+        if (body.patch.roles_applied_bucket !== undefined) updateData.roles_applied_bucket = body.patch.roles_applied_bucket
+        if (body.patch.companies_emailed_bucket !== undefined) updateData.companies_emailed_bucket = body.patch.companies_emailed_bucket
+        if (body.patch.interviews_bucket !== undefined) updateData.interviews_bucket = body.patch.interviews_bucket
+        
+        const { error: updateError } = await supabaseServer()
           .from('cancellations')
-          .update({ found_job: body.patch.found_job })
+          .update(updateData)
           .eq('id', cancellationId)
 
         if (updateError) {
@@ -138,12 +194,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const response: ProgressResponse = {
-      cancellationId,
-      saved: {
-        found_job: body.patch.found_job
-      }
-    }
+                    const response: ProgressResponse = {
+                  cancellationId,
+                  saved: {
+                    ...(body.patch.found_job !== undefined && { found_job: body.patch.found_job }),
+                    ...(body.patch.found_with_mm !== undefined && { found_with_mm: body.patch.found_with_mm }),
+                    ...(body.patch.roles_applied_bucket !== undefined && { roles_applied_bucket: body.patch.roles_applied_bucket }),
+                    ...(body.patch.companies_emailed_bucket !== undefined && { companies_emailed_bucket: body.patch.companies_emailed_bucket }),
+                    ...(body.patch.interviews_bucket !== undefined && { interviews_bucket: body.patch.interviews_bucket })
+                  }
+                }
 
     return NextResponse.json(response)
   } catch (error) {
