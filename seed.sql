@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS cancellations (
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   subscription_id UUID REFERENCES subscriptions(id) ON DELETE CASCADE,
   downsell_variant TEXT NOT NULL CHECK (downsell_variant IN ('A', 'B')),
+  found_job BOOLEAN,
   reason TEXT,
   accepted_downsell BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
