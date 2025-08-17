@@ -11,6 +11,8 @@ interface ProgressRequest {
     companies_emailed_bucket?: '0' | '1-5' | '6-20' | '20+'
     interviews_bucket?: '0' | '1-2' | '3-5' | '5+'
     feedback?: string
+    has_lawyer?: boolean
+    visa?: string
   }
 }
 
@@ -23,6 +25,8 @@ interface ProgressResponse {
     companies_emailed_bucket?: '0' | '1-5' | '6-20' | '20+'
     interviews_bucket?: '0' | '1-2' | '3-5' | '5+'
     feedback?: string
+    has_lawyer?: boolean
+    visa?: string
   }
 }
 
@@ -88,6 +92,27 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    
+    if (body.patch.has_lawyer !== undefined && typeof body.patch.has_lawyer !== 'boolean') {
+      return NextResponse.json(
+        { field: 'has_lawyer', message: 'has_lawyer must be a boolean' }, 
+        { status: 400 }
+      )
+    }
+    
+    if (body.patch.visa !== undefined && typeof body.patch.visa !== 'string') {
+      return NextResponse.json(
+        { field: 'visa', message: 'visa must be a string' }, 
+        { status: 400 }
+      )
+    }
+    
+    if (body.patch.visa !== undefined && body.patch.visa.trim().length > 255) {
+      return NextResponse.json(
+        { field: 'visa', message: 'visa must be 255 characters or less' }, 
+        { status: 400 }
+      )
+    }
 
     const mockUserId = process.env.MOCK_USER_ID
     if (!mockUserId) {
@@ -125,6 +150,8 @@ export async function POST(request: NextRequest) {
       if (body.patch.companies_emailed_bucket !== undefined) updateData.companies_emailed_bucket = body.patch.companies_emailed_bucket
       if (body.patch.interviews_bucket !== undefined) updateData.interviews_bucket = body.patch.interviews_bucket
       if (body.patch.feedback !== undefined) updateData.feedback = body.patch.feedback.trim()
+      if (body.patch.has_lawyer !== undefined) updateData.has_lawyer = body.patch.has_lawyer
+      if (body.patch.visa !== undefined) updateData.visa = body.patch.visa.trim()
 
       const { error: updateError } = await supabaseServer()
         .from('cancellations')
@@ -170,6 +197,8 @@ export async function POST(request: NextRequest) {
         if (body.patch.companies_emailed_bucket !== undefined) insertData.companies_emailed_bucket = body.patch.companies_emailed_bucket
         if (body.patch.interviews_bucket !== undefined) insertData.interviews_bucket = body.patch.interviews_bucket
         if (body.patch.feedback !== undefined) insertData.feedback = body.patch.feedback.trim()
+        if (body.patch.has_lawyer !== undefined) insertData.has_lawyer = body.patch.has_lawyer
+        if (body.patch.visa !== undefined) insertData.visa = body.patch.visa.trim()
 
         const { data: newCancellation, error: createError } = await supabaseServer() 
           .from('cancellations')
@@ -197,6 +226,8 @@ export async function POST(request: NextRequest) {
         if (body.patch.companies_emailed_bucket !== undefined) updateData.companies_emailed_bucket = body.patch.companies_emailed_bucket
         if (body.patch.interviews_bucket !== undefined) updateData.interviews_bucket = body.patch.interviews_bucket
         if (body.patch.feedback !== undefined) updateData.feedback = body.patch.feedback.trim()
+        if (body.patch.has_lawyer !== undefined) updateData.has_lawyer = body.patch.has_lawyer
+        if (body.patch.visa !== undefined) updateData.visa = body.patch.visa.trim()
         
         const { error: updateError } = await supabaseServer()
           .from('cancellations')
@@ -221,7 +252,9 @@ export async function POST(request: NextRequest) {
                     ...(body.patch.roles_applied_bucket !== undefined && { roles_applied_bucket: body.patch.roles_applied_bucket }),
                     ...(body.patch.companies_emailed_bucket !== undefined && { companies_emailed_bucket: body.patch.companies_emailed_bucket }),
                     ...(body.patch.interviews_bucket !== undefined && { interviews_bucket: body.patch.interviews_bucket }),
-                    ...(body.patch.feedback !== undefined && { feedback: body.patch.feedback.trim() })
+                    ...(body.patch.feedback !== undefined && { feedback: body.patch.feedback.trim() }),
+                    ...(body.patch.has_lawyer !== undefined && { has_lawyer: body.patch.has_lawyer }),
+                    ...(body.patch.visa !== undefined && { visa: body.patch.visa.trim() })
                   }
                 }
 

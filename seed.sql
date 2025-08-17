@@ -36,6 +36,11 @@ CREATE TABLE IF NOT EXISTS cancellations (
     (feedback IS NULL) 
     OR (char_length(trim(feedback)) BETWEEN 25 AND 1000)
   ),
+  has_lawyer BOOLEAN,
+  visa TEXT CHECK (
+    (visa IS NULL) 
+    OR (char_length(trim(visa)) BETWEEN 1 AND 255)
+  ),
   reason TEXT,
   accepted_downsell BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
