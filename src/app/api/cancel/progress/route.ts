@@ -216,7 +216,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           .single()
 
         if (latestSubscription?.monthly_price) {
-          const newPrice = latestSubscription.monthly_price - 1000 // $10 off (1000 cents)
+          // Calculate new price after $10 off, but don't go below 0
+          const newPrice = Math.max(0, latestSubscription.monthly_price - 1000) // $10 off (1000 cents), minimum 0
           
           const { error: updateError } = await supabaseServer()
             .from('subscriptions')
@@ -309,7 +310,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           .single()
 
         if (subscription?.monthly_price) {
-          const newPrice = subscription.monthly_price - 1000 // $10 off (1000 cents)
+          // Calculate new price after $10 off, but don't go below 0
+          const newPrice = Math.max(0, subscription.monthly_price - 1000) // $10 off (1000 cents), minimum 0
           
           const { error: priceUpdateError } = await supabaseServer()
             .from('subscriptions')

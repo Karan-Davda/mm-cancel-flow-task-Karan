@@ -51,9 +51,9 @@ export default function SuggestedDreamRoles({
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="h-full flex flex-col space-y-6">
             {/* Header */}
-            <div className="text-left">
+            <div className="text-left flex-shrink-0">
                 <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 font-dm-sans">
                     Awesome — we've pulled together a few roles that seem like a great fit for you.
                 </h2>
@@ -62,8 +62,8 @@ export default function SuggestedDreamRoles({
                 </p>
             </div>
 
-            {/* Job Roles */}
-            <div className="space-y-4">
+            {/* Job Roles - Scrollable section */}
+            <div className="flex-1 space-y-4 overflow-y-auto min-h-0">
                 {jobRoles.map((job) => (
                     <div key={job.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                         {/* Job Header - Company Logo, Job Title, Status & Salary on Left */}
@@ -193,8 +193,8 @@ export default function SuggestedDreamRoles({
 
             <hr className="border-gray-200 m-0" />
 
-            {/* Main CTA Button */}
-            <div className="pt-4">
+            {/* Main CTA Button - Fixed at bottom */}
+            <div className="pt-4 flex-shrink-0">
                 <button
                     onClick={onClose}
                     className="w-full px-8 py-4 font-medium rounded-lg transition-all duration-200 font-dm-sans text-base bg-[var(--brand-purple)] text-white hover:bg-[#8a5fff]"

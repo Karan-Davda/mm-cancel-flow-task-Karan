@@ -42,7 +42,7 @@ export default function DownSellAccepted({
         fetchSubscriptionPrice();
     }, []);
 
-    const discountedPrice = subscriptionPrice - 10; // $10 off
+    const discountedPrice = Math.max(0, subscriptionPrice - 10); // $10 off, minimum 0
 
     if (loading) {
         return (

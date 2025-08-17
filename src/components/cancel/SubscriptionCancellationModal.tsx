@@ -13,67 +13,68 @@ import DownSellAccepted from './steps/DownSellAccepted'
 import SuggestedDreamRoles from './steps/SuggestedDreamRoles';
 import { ActivityBuckets } from './parts/ActivityBuckets'
 import Confetti from './parts/Confetti'
+import { useCancellationAPI } from '@/hooks/useCancellationAPI'
+import { useCancellationState } from '@/hooks/useCancellationState'
+import { getFlowStep, getModalWidth, getImageVisibility, getDesktopImageWidth } from '@/utils/flowNavigation'
+import { SUBSCRIPTION_PRICE } from '@/constants/cancellation'
 
 interface SubscriptionCancellationModalProps {
   isOpen: boolean
   onClose: () => void
 }
 
-interface ProgressResponse {
-  success: boolean
-  cancellationId: string
-  saved: {
-    id: string
-    user_id: string
-    subscription_id?: string
-    downsell_variant?: 'A' | 'B'
-    found_job?: boolean
-    found_with_mm?: boolean
-    roles_applied_bucket?: string
-    companies_emailed_bucket?: string
-    interviews_bucket?: string
-    feedback?: string
-    has_lawyer?: boolean
-    visa?: string
-    reason?: string
-    accepted_downsell?: boolean
-    created_at?: string
-  }
-}
-
 export default function SubscriptionCancellationModal({
   isOpen,
   onClose
 }: SubscriptionCancellationModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [cancellationId, setCancellationId] = useState<string | null>(null)
-  
-  // Found Job Flow State
-  const [flow, setFlow] = useState<'found' | 'still' | null>(null)
-  const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [found_with_mm, setFoundWithMm] = useState<boolean | null>(null)
-  const [roles_applied_bucket, setRolesAppliedBucket] = useState<'0' | '1-5' | '6-20' | '20+' | null>(null)
-  const [companies_emailed_bucket, setCompaniesEmailedBucket] = useState<'0' | '1-5' | '6-20' | '20+' | null>(null)
-  const [interviews_bucket, setInterviewsBucket] = useState<'0' | '1-2' | '3-5' | '5+' | null>(null)
-  const [feedback, setFeedback] = useState('')
-  const [has_lawyer, setHasLawyer] = useState<boolean | null>(null)
-  const [visa, setVisa] = useState('')
-  const [showConfetti, setShowConfetti] = useState(false)
-  const [showSuccessScreen, setShowSuccessScreen] = useState(false)
+  const {
+    isSubmitting,
+    error,
+    updateProgress,
+    fetchActiveCancellation,
+    clearError
+  } = useCancellationAPI()
 
-  // NotFound Flow State
-  const [downsell_variant, setDownsellVariant] = useState<'A' | 'B' | null>(null)
-  const [accepted_downsell, setAcceptedDownsell] = useState<boolean | null>(null)
-  const [showSuggestedDreamRoles, setShowSuggestedDreamRoles] = useState(false);
-  const [subscriptionPrice, setSubscriptionPrice] = useState<number>(25)
-  const [notFoundStep, setNotFoundStep] = useState<1 | 2 | 3>(1)
-  const [showNotFoundSuccess, setShowNotFoundSuccess] = useState(false)
-
-  // Debug state changes for activity buckets and found_with_mm
-  useEffect(() => {
-    // Removed debug logging
-  }, [found_with_mm, roles_applied_bucket, companies_emailed_bucket, interviews_bucket, flow, step]);
+  const {
+    flow,
+    step,
+    found_with_mm,
+    roles_applied_bucket,
+    companies_emailed_bucket,
+    interviews_bucket,
+    feedback,
+    has_lawyer,
+    visa,
+    showConfetti,
+    showSuccessScreen,
+    downsell_variant,
+    accepted_downsell,
+    showSuggestedDreamRoles,
+    subscriptionPrice,
+    notFoundStep,
+    showNotFoundSuccess,
+    cancellationId,
+    setFlow,
+    setStep,
+    setFoundWithMm,
+    setRolesAppliedBucket,
+    setCompaniesEmailedBucket,
+    setInterviewsBucket,
+    setFeedback,
+    setHasLawyer,
+    setVisa,
+    setShowConfetti,
+    setShowSuccessScreen,
+    setDownsellVariant,
+    setAcceptedDownsell,
+    setShowSuggestedDreamRoles,
+    setSubscriptionPrice,
+    setNotFoundStep,
+    setShowNotFoundSuccess,
+    setCancellationId,
+    resetFoundFlowState,
+    resetNotFoundFlowState
+  } = useCancellationState()
 
   // Fetch subscription data when NotFound flow starts
   useEffect(() => {
@@ -81,17 +82,17 @@ export default function SubscriptionCancellationModal({
       const fetchSubscriptionData = async () => {
         try {
           // Mock subscription data for now - in production this would fetch from API
-          setSubscriptionPrice(25) // $25/month
+          setSubscriptionPrice(SUBSCRIPTION_PRICE.DEFAULT)
         } catch (error) {
           console.error('Error fetching subscription data:', error)
           // Fallback to default values
-          setSubscriptionPrice(25)
+          setSubscriptionPrice(SUBSCRIPTION_PRICE.DEFAULT)
         }
       }
       
       fetchSubscriptionData()
     }
-  }, [flow, downsell_variant])
+  }, [flow, downsell_variant, setSubscriptionPrice])
 
   // Resume and prefill functionality - fetch active cancellation on mount
   useEffect(() => {
@@ -100,18 +101,11 @@ export default function SubscriptionCancellationModal({
       const timeoutId = setTimeout(() => {
         const resumeActiveCancellation = async () => {
           try {
-            const response = await fetch('/api/cancel/active')
+            const activeCancellation = await fetchActiveCancellation()
             
-            if (response.status === 204) {
+            if (!activeCancellation) {
               return
             }
-            
-            if (!response.ok) {
-              console.error('Failed to fetch active cancellation:', response.status)
-              return
-            }
-            
-            const activeCancellation = await response.json()
             
             // Store cancellation ID and downsell variant
             setCancellationId(activeCancellation.id)
@@ -135,32 +129,20 @@ export default function SubscriptionCancellationModal({
             if (activeCancellation.visa) setVisa(activeCancellation.visa)
             
             // Automatically set flow and step based on found_job - skip initial choice screen
-            if (activeCancellation.found_job === true) {
-              // Found Job Flow - go directly to Step-1
-              setFlow('found')
-              setStep(1)
-            } else if (activeCancellation.found_job === false) {
-              // NotFound Flow - go directly to appropriate step
-              setFlow('still')
-              
-              if (activeCancellation.downsell_variant === 'B' && activeCancellation.accepted_downsell === null) {
-                // Variant B: Show offer step (Step-1)
-                setNotFoundStep(1)
-              } else if (activeCancellation.downsell_variant === 'A') {
-                // Variant A: Always start with Step-1 (Offer step)
-                setNotFoundStep(1)
-              } else if (activeCancellation.accepted_downsell !== null) {
-                // User has already made a decision on the offer, go to Step-2
-                setNotFoundStep(2)
-                setAcceptedDownsell(activeCancellation.accepted_downsell)
-              } else {
-                // Default case: start with Step-1
-                setNotFoundStep(1)
-              }
-            } else {
-              // found_job is null - this means user clicked back from step 1
-              // Don't set flow or step - let the UI show the initial choice screen
-              // But still store the cancellation ID for future use
+            const flowStep = getFlowStep(
+              activeCancellation.found_job,
+              activeCancellation.downsell_variant,
+              activeCancellation.accepted_downsell
+            )
+            
+            if (flowStep.flow) {
+              setFlow(flowStep.flow)
+              if (flowStep.step) setStep(flowStep.step as 1 | 2 | 3)
+              if (flowStep.notFoundStep) setNotFoundStep(flowStep.notFoundStep as 1 | 2 | 3)
+            }
+            
+            if (activeCancellation.accepted_downsell !== null) {
+              setAcceptedDownsell(activeCancellation.accepted_downsell)
             }
             
           } catch (error) {
@@ -174,56 +156,24 @@ export default function SubscriptionCancellationModal({
       // Cleanup timeout if component unmounts or dependencies change
       return () => clearTimeout(timeoutId);
     }
-  }, [isOpen, flow, cancellationId]) // Only depend on these three values
-
-  // Additional useEffect to ensure flow navigation runs when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      // Only run this if we don't already have a flow set
-      if (!flow) {
-        // No flow set yet, will let the other useEffect handle it
-      }
-    }
-  }, [isOpen])
+  }, [isOpen, flow, cancellationId, fetchActiveCancellation, setCancellationId, setDownsellVariant, setFoundWithMm, setRolesAppliedBucket, setCompaniesEmailedBucket, setInterviewsBucket, setFeedback, setHasLawyer, setVisa, setFlow, setStep, setNotFoundStep, setAcceptedDownsell])
 
   // Handle user choice submission
   const handleChoice = async (foundJob: boolean) => {
-    setIsSubmitting(true)
-    setError(null)
-
     try {
       // Always make API call to update found_job, whether creating new or updating existing
-      const response = await fetch('/api/cancel/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add CSRF token if available
-          ...(document.cookie.includes('csrf-token') && {
-            'x-csrf-token': document.cookie
-              .split('; ')
-              .find(row => row.startsWith('csrf-token='))
-              ?.split('=')[1] || ''
-          })
-        },
-        body: JSON.stringify({
-          patch: {
-            found_job: foundJob,
-            // Clear irrelevant fields when switching to Found Job flow
-            ...(foundJob && {
-              reason: null,
-              feedback: null,
-              accepted_downsell: null
-            })
-          }
+      const data = await updateProgress({
+        found_job: foundJob,
+        // Clear irrelevant fields when switching to Found Job flow
+        ...(foundJob && {
+          reason: null,
+          feedback: null,
+          accepted_downsell: null
         })
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to save your choice')
-      }
+      if (!data) return
 
-      const data: ProgressResponse = await response.json()
       setCancellationId(data.cancellationId)
       
       // Extract downsell variant if it exists in the response
@@ -242,7 +192,7 @@ export default function SubscriptionCancellationModal({
       } else {
         setNotFoundStep(1)
       }
-      setError(null)
+      clearError()
       
       // Trigger confetti if user found a job
       if (foundJob) {
@@ -252,9 +202,7 @@ export default function SubscriptionCancellationModal({
       }
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
-    } finally {
-      setIsSubmitting(false)
+      console.error('Error in handleChoice:', err)
     }
   }
 
@@ -262,9 +210,6 @@ export default function SubscriptionCancellationModal({
   const handleStep1Continue = async () => {
     if (!cancellationId) return
     
-    setIsSubmitting(true)
-    setError(null)
-
     try {
       // Only send the fields relevant to step 1
       const patchData: any = {}
@@ -287,38 +232,10 @@ export default function SubscriptionCancellationModal({
         interviews_bucket
       })
 
-      const response = await fetch('/api/cancel/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(document.cookie.includes('csrf-token') && {
-            'x-csrf-token': document.cookie
-              .split('; ')
-              .find(row => row.startsWith('csrf-token='))
-              ?.split('=')[1] || ''
-          })
-        },
-        body: JSON.stringify({
-          patch: patchData
-        })
-      })
+      const data = await updateProgress(patchData)
 
-      console.log('API Response status:', response.status)
-      console.log('API Response headers:', Object.fromEntries(response.headers.entries()))
+      if (!data) return
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('API Error response:', errorData)
-        // Handle field-specific errors
-        if (errorData.field && errorData.message) {
-          setError(`${errorData.field}: ${errorData.message}`)
-        } else {
-          throw new Error(errorData.message || 'Failed to save your answers')
-        }
-        return
-      }
-
-      const data = await response.json()
       console.log('=== API RESPONSE ===')
       console.log('Full API response:', data)
       console.log('Saved data:', data.saved)
@@ -337,15 +254,15 @@ export default function SubscriptionCancellationModal({
         }
         if (data.saved.roles_applied_bucket !== undefined) {
           console.log('Setting roles_applied_bucket to:', data.saved.roles_applied_bucket)
-          setRolesAppliedBucket(data.saved.roles_applied_bucket)
+          setRolesAppliedBucket(data.saved.roles_applied_bucket as any)
         }
         if (data.saved.companies_emailed_bucket !== undefined) {
           console.log('Setting companies_emailed_bucket to:', data.saved.companies_emailed_bucket)
-          setCompaniesEmailedBucket(data.saved.companies_emailed_bucket)
+          setCompaniesEmailedBucket(data.saved.companies_emailed_bucket as any)
         }
         if (data.saved.interviews_bucket !== undefined) {
           console.log('Setting interviews_bucket to:', data.saved.interviews_bucket)
-          setInterviewsBucket(data.saved.interviews_bucket)
+          setInterviewsBucket(data.saved.interviews_bucket as any)
         }
       }
 
@@ -358,13 +275,10 @@ export default function SubscriptionCancellationModal({
 
       // Move to step 2
       setStep(2)
-      setError(null)
+      clearError()
       
     } catch (err) {
       console.error('Error in handleStep1Continue:', err)
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -372,9 +286,6 @@ export default function SubscriptionCancellationModal({
   const handleStep2Continue = async () => {
     if (!cancellationId) return
     
-    setIsSubmitting(true)
-    setError(null)
-
     try {
       // Only send the fields relevant to step 2
       const patchData: any = {}
@@ -382,46 +293,20 @@ export default function SubscriptionCancellationModal({
       if (feedback.trim()) patchData.feedback = feedback.trim()
       if (has_lawyer !== null) patchData.has_lawyer = has_lawyer
 
-      const response = await fetch('/api/cancel/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(document.cookie.includes('csrf-token') && {
-            'x-csrf-token': document.cookie
-              .split('; ')
-              .find(row => row.startsWith('csrf-token='))
-              ?.split('=')[1] || ''
-          })
-        },
-        body: JSON.stringify({
-          patch: patchData
-        })
-      })
+      const data = await updateProgress(patchData)
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        // Handle field-specific errors
-        if (errorData.field && errorData.message) {
-          setError(`${errorData.field}: ${errorData.message}`)
-        } else {
-          throw new Error(errorData.message || 'Failed to save your answers')
-        }
-        return
-      }
+      if (!data) return
 
-      const data = await response.json()
       if (data.cancellationId) {
         setCancellationId(data.cancellationId)
       }
 
       // Move to step 3
       setStep(3)
-      setError(null)
+      clearError()
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
-    } finally {
-      setIsSubmitting(false)
+      console.error('Error in handleStep2Continue:', err)
     }
   }
 
@@ -429,88 +314,39 @@ export default function SubscriptionCancellationModal({
   const handleStep3Continue = async () => {
     if (!cancellationId) return
     
-    setIsSubmitting(true)
-    setError(null)
-
     try {
       // Only send the fields relevant to step 3
       const patchData: any = {}
       
+      if (has_lawyer !== null) patchData.has_lawyer = has_lawyer
       if (visa.trim()) patchData.visa = visa.trim()
-      if (found_with_mm !== null) patchData.found_with_mm = found_with_mm
 
-      const response = await fetch('/api/cancel/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(document.cookie.includes('csrf-token') && {
-            'x-csrf-token': document.cookie
-              .split('; ')
-              .find(row => row.startsWith('csrf-token='))
-              ?.split('=')[1] || ''
-          })
-        },
-        body: JSON.stringify({
-          patch: patchData
-        })
-      })
+      const data = await updateProgress(patchData)
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        // Handle field-specific errors
-        if (errorData.field && errorData.message) {
-          setError(`${errorData.field}: ${errorData.message}`)
-        } else {
-          throw new Error(errorData.message || 'Failed to save your answers')
-        }
-        return
-      }
+      if (!data) return
 
-      const data = await response.json()
       if (data.cancellationId) {
         setCancellationId(data.cancellationId)
       }
 
       // Show success screen
       setShowSuccessScreen(true)
-      setError(null)
+      clearError()
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
-    } finally {
-      setIsSubmitting(false)
+      console.error('Error in handleStep3Continue:', err)
     }
   }
 
   // NotFound Flow Handlers
   const handleAcceptDownsell = async () => {
     try {
-      const response = await fetch('/api/cancel/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(document.cookie.includes('csrf-token') && {
-            'x-csrf-token': document.cookie
-              .split('; ')
-              .find(row => row.startsWith('csrf-token='))
-              ?.split('=')[1] || ''
-          })
-        },
-        body: JSON.stringify({
-          patch: {
-            accepted_downsell: true
-          }
-        })
+      const data = await updateProgress({
+        accepted_downsell: true
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        setError(errorData.message || 'Failed to save data')
-        return
-      }
+      if (!data) return
 
-      const data = await response.json()
-      
       if (data.cancellationId) {
         setCancellationId(data.cancellationId)
       }
@@ -519,50 +355,31 @@ export default function SubscriptionCancellationModal({
       // Don't change notFoundStep here, just set accepted_downsell
     } catch (error) {
       console.error('Error accepting downsell:', error)
-      setError('Failed to save data. Please try again.')
     }
   }
 
   const handleDeclineDownsell = async () => {
     try {
-      const response = await fetch('/api/cancel/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(document.cookie.includes('csrf-token') && {
-            'x-csrf-token': document.cookie
-              .split('; ')
-              .find(row => row.startsWith('csrf-token='))
-              ?.split('=')[1] || ''
-          })
-        },
-        body: JSON.stringify({
-          patch: {
-            accepted_downsell: false
-          }
-        })
+      const data = await updateProgress({
+        accepted_downsell: false
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        setError(errorData.message || 'Failed to save data')
-        return
-      }
+      if (!data) return
 
-      const data = await response.json()
       if (data.cancellationId) {
         setCancellationId(data.cancellationId)
       }
       
       setAcceptedDownsell(false)
-      setNotFoundStep(2) // Go directly to usage survey
+      setNotFoundStep(2)
     } catch (error) {
       console.error('Error declining downsell:', error)
-      setError('Failed to save data. Please try again.')
     }
   }
 
   const handleNotFoundContinue = async () => {
+    if (!cancellationId) return
+    
     try {
       // Only send the fields relevant to this step
       const patchData: any = {}
@@ -571,37 +388,20 @@ export default function SubscriptionCancellationModal({
       if (companies_emailed_bucket) patchData.companies_emailed_bucket = companies_emailed_bucket
       if (interviews_bucket) patchData.interviews_bucket = interviews_bucket
 
-      const response = await fetch('/api/cancel/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(document.cookie.includes('csrf-token') && {
-            'x-csrf-token': document.cookie
-              .split('; ')
-              .find(row => row.startsWith('csrf-token='))
-              ?.split('=')[1] || ''
-          })
-        },
-        body: JSON.stringify({
-          patch: patchData
-        })
-      })
+      const data = await updateProgress(patchData)
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        setError(errorData.message || 'Failed to save data')
-        return
-      }
+      if (!data) return
 
-      const data = await response.json()
       if (data.cancellationId) {
         setCancellationId(data.cancellationId)
       }
-      
+
+      // Move to step 3
       setNotFoundStep(3)
-    } catch (error) {
-      console.error('Error saving usage data:', error)
-      setError('Failed to save data. Please try again.')
+      clearError()
+      
+    } catch (err) {
+      console.error('Error in handleNotFoundContinue:', err)
     }
   }
 
@@ -610,53 +410,26 @@ export default function SubscriptionCancellationModal({
   }
 
   const handleNotFoundStep3Continue = async (reason: string, feedback: string) => {
-    
     if (!cancellationId) {
       return;
     }
     
-    setIsSubmitting(true)
-    setError(null)
-
     try {
-      const response = await fetch('/api/cancel/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(document.cookie.includes('csrf-token') && {
-            'x-csrf-token': document.cookie
-              .split('; ')
-              .find(row => row.startsWith('csrf-token='))
-              ?.split('=')[1] || ''
-          })
-        },
-        body: JSON.stringify({
-          patch: {
-            reason,
-            feedback
-          }
-        })
+      const data = await updateProgress({
+        reason,
+        feedback
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        setError(errorData.message || 'Failed to save cancellation reason')
-        return
-      }
+      if (!data) return
 
-      const responseData = await response.json()
-      
       // Show success screen instead of closing modal
       setShowNotFoundSuccess(true)
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
-    } finally {
-      setIsSubmitting(false)
+      console.error('API call error:', err)
     }
   }
 
-  // Handle finish button click
   const handleFinish = () => {
     onClose()
   }
@@ -675,13 +448,9 @@ export default function SubscriptionCancellationModal({
         />
         
         {/* Modal */}
-        <div className={`relative bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full md:mx-4 md:mt-0 mt-auto h-[85vh] md:h-auto flex flex-col overflow-hidden ${
-          flow === 'found' && step === 1 ? 'md:max-w-6xl' : 
-          flow === 'still' && step === 1 ? 'md:max-w-5xl' : 
-          flow === 'still' && showSuggestedDreamRoles ? 'md:max-w-7xl' :
-          flow === 'still' && showNotFoundSuccess ? 'md:max-w-5xl' :
-          'md:max-w-4xl'
-        }`}>
+        <div className={`relative bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full md:mx-4 md:mt-0 mt-auto flex flex-col overflow-hidden ${
+          showSuggestedDreamRoles ? 'h-screen md:h-auto' : 'h-[85vh] md:h-auto'
+        } ${getModalWidth(flow, step, notFoundStep, showSuccessScreen, showNotFoundSuccess, Boolean(accepted_downsell), showSuggestedDreamRoles)} ${showSuggestedDreamRoles ? 'md:max-h-[90vh]' : ''}`}>
           {/* Title and Close button */}
           <div className="relative pt-7 pb-4 md:pb-4 md:pt-7 border-b border-gray-300 flex-shrink-0">
             {/* Back button - show when in flow but not on success screen - Desktop only */}
@@ -691,108 +460,39 @@ export default function SubscriptionCancellationModal({
                   if (flow === 'found' && step === 1) {
                     // Found Flow Step-1: Set found_job to null and go back to initial screen
                     try {
-                      const response = await fetch('/api/cancel/progress', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          ...(document.cookie.includes('csrf-token') && {
-                            'x-csrf-token': document.cookie
-                              .split('; ')
-                              .find(row => row.startsWith('csrf-token='))
-                              ?.split('=')[1] || ''
-                          })
-                        },
-                        body: JSON.stringify({
-                          patch: {
-                            found_job: null
-                          }
-                        })
+                      const data = await updateProgress({
+                        found_job: null
                       })
 
-                      if (response.ok) {
+                      if (data) {
                         // Reset to initial choice screen
-                        setFlow(null)
-                        setStep(1)
-                        setCancellationId(null)
-                        setFoundWithMm(null)
-                        setRolesAppliedBucket(null)
-                        setCompaniesEmailedBucket(null)
-                        setInterviewsBucket(null)
-                        setFeedback('')
-                        setHasLawyer(null)
-                        setVisa('')
-                        setError(null)
-                        // Force a re-check of the database by resetting cancellationId
-                        setCancellationId(null)
+                        resetFoundFlowState()
                       }
                     } catch (error) {
                       console.error('Error updating found_job:', error)
                       // Still reset to initial screen even if API call fails
-                      setFlow(null)
-                      setStep(1)
-                      setCancellationId(null)
-                      setFoundWithMm(null)
-                      setRolesAppliedBucket(null)
-                      setCompaniesEmailedBucket(null)
-                      setInterviewsBucket(null)
-                      setFeedback('')
-                      setHasLawyer(null)
-                      setVisa('')
-                      setError(null)
+                      resetFoundFlowState()
                     }
                   } else if (flow === 'still' && notFoundStep === 1) {
                     // NotFound Flow Step-1: Set found_job to null and go back to initial screen
                     try {
-                      const response = await fetch('/api/cancel/progress', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          ...(document.cookie.includes('csrf-token') && {
-                            'x-csrf-token': document.cookie
-                              .split('; ')
-                              .find(row => row.startsWith('csrf-token='))
-                              ?.split('=')[1] || ''
-                          })
-                        },
-                        body: JSON.stringify({
-                          patch: {
-                            found_job: null
-                          }
-                        })
+                      const data = await updateProgress({
+                        found_job: null
                       })
 
-                      if (response.ok) {
+                      if (data) {
                         // Reset to initial choice screen
-                        setFlow(null)
-                        setNotFoundStep(1)
-                        setCancellationId(null)
-                        setDownsellVariant(null)
-                        setAcceptedDownsell(null)
-                        setRolesAppliedBucket(null)
-                        setCompaniesEmailedBucket(null)
-                        setInterviewsBucket(null)
-                        setError(null)
-                        // Force a re-check of the database by resetting cancellationId
-                        setCancellationId(null)
+                        resetNotFoundFlowState()
                       }
                     } catch (error) {
                       console.error('Error updating found_job:', error)
                       // Still reset to initial screen even if API call fails
-                      setFlow(null)
-                      setNotFoundStep(1)
-                      setCancellationId(null)
-                      setDownsellVariant(null)
-                      setAcceptedDownsell(null)
-                      setRolesAppliedBucket(null)
-                      setCompaniesEmailedBucket(null)
-                      setInterviewsBucket(null)
-                      setError(null)
+                      resetNotFoundFlowState()
                     }
                   } else if (flow === 'found' && step > 1) {
-                    // Go back to previous step
                     setStep((step - 1) as 1 | 2 | 3)
                   } else if (flow === 'still' && notFoundStep > 1) {
-                    // Go back to previous step
+                    // Go back to previous step for all variants
                     setNotFoundStep((notFoundStep - 1) as 1 | 2 | 3)
                   }
                 }}
@@ -932,22 +632,12 @@ export default function SubscriptionCancellationModal({
                             setFeedback('')
                             setHasLawyer(null)
                             setVisa('')
-                            setError(null)
+                            clearError()
                           }
                         } catch (error) {
                           console.error('Error updating found_job:', error)
                           // Still reset to initial screen even if API call fails
-                          setFlow(null)
-                          setStep(1)
-                          setCancellationId(null)
-                          setFoundWithMm(null)
-                          setRolesAppliedBucket(null)
-                          setCompaniesEmailedBucket(null)
-                          setInterviewsBucket(null)
-                          setFeedback('')
-                          setHasLawyer(null)
-                          setVisa('')
-                          setError(null)
+                          resetFoundFlowState()
                         }
                       } else {
                         // Go back to previous step
@@ -960,60 +650,22 @@ export default function SubscriptionCancellationModal({
                       } else if (notFoundStep === 1) {
                         // NotFound Flow Step-1: Set found_job to null and go back to initial screen
                         try {
-                          const response = await fetch('/api/cancel/progress', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              ...(document.cookie.includes('csrf-token') && {
-                                'x-csrf-token': document.cookie
-                                  .split('; ')
-                                  .find(row => row.startsWith('csrf-token='))
-                                  ?.split('=')[1] || ''
-                              })
-                            },
-                            body: JSON.stringify({
-                              patch: {
-                                found_job: null
-                              }
-                            })
+                          const data = await updateProgress({
+                            found_job: null
                           })
 
-                          if (response.ok) {
+                          if (data) {
                             // Reset to initial choice screen
-                            setFlow(null)
-                            setNotFoundStep(1)
-                            setCancellationId(null)
-                            setDownsellVariant(null)
-                            setAcceptedDownsell(null)
-                            setRolesAppliedBucket(null)
-                            setCompaniesEmailedBucket(null)
-                            setInterviewsBucket(null)
-                            setError(null)
+                            resetNotFoundFlowState()
                           }
                         } catch (error) {
                           console.error('Error updating found_job:', error)
                           // Still reset to initial screen even if API call fails
-                          setFlow(null)
-                          setNotFoundStep(1)
-                          setCancellationId(null)
-                          setDownsellVariant(null)
-                          setAcceptedDownsell(null)
-                          setRolesAppliedBucket(null)
-                          setCompaniesEmailedBucket(null)
-                          setInterviewsBucket(null)
-                          setError(null)
+                          resetNotFoundFlowState()
                         }
                       } else if (notFoundStep === 2 && downsell_variant === 'A') {
                         // For variant A, going back from Step-2 should go to initial screen, not Step-1
-                        setFlow(null)
-                        setNotFoundStep(1)
-                        setCancellationId(null)
-                        setDownsellVariant(null)
-                        setAcceptedDownsell(null)
-                        setRolesAppliedBucket(null)
-                        setCompaniesEmailedBucket(null)
-                        setInterviewsBucket(null)
-                        setError(null)
+                        resetNotFoundFlowState()
                       } else {
                         // Go back to previous step
                         setNotFoundStep((notFoundStep - 1) as 1 | 2 | 3)
@@ -1035,13 +687,7 @@ export default function SubscriptionCancellationModal({
           <div className="flex-1 overflow-y-auto">
             {/* Mobile Image Section - Top - Hidden for Found Flow Steps and Success Screen */}
             <div className={`${
-              showSuccessScreen
-                ? 'hidden' 
-                : flow === 'found' && (step === 1 || step === 2 || step === 3)
-                ? 'hidden' 
-                : flow === 'still' && (notFoundStep === 1 || notFoundStep === 2 || notFoundStep === 3 || Boolean(accepted_downsell))
-                ? 'hidden'
-                : 'block'
+              getImageVisibility(flow, step, notFoundStep, showSuccessScreen, accepted_downsell, showSuggestedDreamRoles, showNotFoundSuccess)
             } md:hidden w-full h-44 relative p-4`}>
               <img
                 src="/image/empire-state-compressed.jpg"
@@ -1053,31 +699,35 @@ export default function SubscriptionCancellationModal({
               />
             </div>
 
-            {/* Mobile Image Section for NotFoundSuccessScreen */}
-            {showNotFoundSuccess && (
-              <div className="block md:hidden w-full h-44 relative p-4">
-                <img
-                  src="/image/empire-state-compressed.jpg"
-                  alt="New York City skyline with Empire State Building"
-                  className="w-full h-full object-cover rounded-lg shadow-2xl"
-                  style={{
-                    boxShadow: 'inset 0 0 20px rgba(0, 0, 0, 0.3)'
-                  }}
-                />
-              </div>
-            )}
+
 
             {/* Content Section */}
             <div className="flex flex-col md:flex-row overflow-hidden">
               {/* Left section - Content and buttons */}
-              <div className="flex-1 p-4 md:p-4 md:pr-2">
-                <div className="w-full max-w-none">
+              <div className={`flex-1 p-4 md:p-4 md:pr-2 ${
+                showSuggestedDreamRoles ? 'h-full flex flex-col' : ''
+              }`}>
+                <div className={`w-full max-w-none ${
+                  showSuggestedDreamRoles ? 'h-full flex flex-col' : ''
+                }`}>
                   
                   {!flow ? (
                     // Initial choice screen - show when no flow set (regardless of cancellationId)
                     (() => {
                       return (
                         <>
+                          {/* Close button for initial modal */}
+                          <div className="absolute top-6 md:top-5 right-4 z-10">
+                            <button
+                              onClick={onClose}
+                              className="p-1 text-gray-600 hover:text-gray-800 transition-colors"
+                            >
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                          
                           {/* Headline */}
                           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 font-dm-sans">
                             Hey mate,
@@ -1100,7 +750,7 @@ export default function SubscriptionCancellationModal({
                           <hr className="border-gray-300 mb-4" />
 
                           {/* Buttons */}
-                          <div className="space-y-2">
+                          <div className="space-y-2 md:static fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 p-4 md:p-0 md:shadow-none md:border-none">
                             <button
                               onClick={() => handleChoice(true)}
                               disabled={isSubmitting}
@@ -1177,13 +827,6 @@ export default function SubscriptionCancellationModal({
                             onBackToJobs={onClose}
                           />
                         );
-                      } else if (Boolean(accepted_downsell) && notFoundStep === 3) {
-                        return (
-                          <NotFoundStep3
-                            onContinue={handleNotFoundStep3Continue}
-                            saving={isSubmitting}
-                          />
-                        );
                       } else if (showSuggestedDreamRoles) {
                         return (
                           <SuggestedDreamRoles
@@ -1226,6 +869,7 @@ export default function SubscriptionCancellationModal({
                         return (
                           <NotFoundStep3
                             onContinue={handleNotFoundStep3Continue}
+                            onGetDiscount={handleAcceptDownsell}
                             saving={isSubmitting}
                           />
                         );
@@ -1243,33 +887,9 @@ export default function SubscriptionCancellationModal({
               </div>
 
               {/* Desktop Right section - Image - Hidden on mobile for Found Flow Steps, visible for success screen */}
-              <div className={`${
-                showSuccessScreen 
-                  ? 'hidden md:block' 
-                  : flow === 'found' && (step === 1 || step === 2 || step === 3)
-                  ? 'hidden md:block' 
-                  : flow === 'still' && (notFoundStep === 1 || notFoundStep === 2 || notFoundStep === 3 || Boolean(accepted_downsell) || showSuggestedDreamRoles || showNotFoundSuccess)
-                  ? 'hidden md:block'
-                  : 'hidden md:block'
-              } flex-shrink-0 p-3 ${
-                showSuccessScreen 
-                  ? 'md:w-[350px]' : flow === 'found' && step === 1 
-                  ? 'md:w-[450px]' : flow === 'found' && step === 2
-                  ? 'md:w-[400px]'
-                  : flow === 'still' && notFoundStep === 1
-                  ? 'md:w-[400px]'
-                  : flow === 'still' && Boolean(accepted_downsell)
-                  ? 'md:w-[400px]'
-                  : flow === 'still' && showSuggestedDreamRoles
-                  ? 'md:w-[500px]'
-                  : flow === 'still' && showNotFoundSuccess
-                  ? 'md:w-[400px]'
-                  : flow === 'still' && notFoundStep === 2
-                  ? 'md:w-[400px]'
-                  : flow === 'still' && notFoundStep === 3
-                  ? 'md:w-[400px]'
-                  : 'md:w-[350px]'
-              }`}>
+              <div className={`hidden md:block ${
+                getDesktopImageWidth(flow, step, notFoundStep, showSuccessScreen, accepted_downsell, showSuggestedDreamRoles, showNotFoundSuccess)
+              } flex-shrink-0 p-3`}>
                 <div className="h-full flex flex-col">
                   <div className="flex-1 relative">
                     <img

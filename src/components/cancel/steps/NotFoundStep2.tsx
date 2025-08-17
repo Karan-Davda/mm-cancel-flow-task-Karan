@@ -53,7 +53,7 @@ export default function NotFoundStep2({
         fetchSubscriptionPrice();
     }, []);
 
-    const discountedPrice = subscriptionPrice - 10; // $10 off
+    const discountedPrice = Math.max(0, subscriptionPrice - 10); // $10 off, minimum 0
 
     // Check if all buckets are selected
     const canContinue = roles_applied_bucket && companies_emailed_bucket && interviews_bucket;
@@ -91,7 +91,7 @@ export default function NotFoundStep2({
                     disabled={saving || loading}
                     className="w-full bg-[#4ABF71] text-white font-bold py-3 px-6 rounded-lg hover:bg-[#3da562] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-dm-sans text-lg mb-3"
                 >
-                    {loading ? 'Loading...' : 'Get $10 off'}
+                    {loading ? 'Loading...' : 'Get $10 off |' + discountedPrice.toFixed(2)} <span className="line-through text-sm">${subscriptionPrice.toFixed(2)}</span>
                 </button>
 
                 {/* Continue Button */}

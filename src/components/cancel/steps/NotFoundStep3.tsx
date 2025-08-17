@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 
 interface NotFoundStep3Props {
     onContinue: (reason: string, feedback: string) => void;
+    onGetDiscount: () => void;
     saving: boolean;
 }
 
-export default function NotFoundStep3({ onContinue, saving }: NotFoundStep3Props) {
+export default function NotFoundStep3({ onContinue, onGetDiscount, saving }: NotFoundStep3Props) {
     const [selectedReason, setSelectedReason] = useState<string>('');
     const [feedback, setFeedback] = useState<string>('');
     const [subscriptionPrice, setSubscriptionPrice] = useState<number>(25);
@@ -34,7 +35,7 @@ export default function NotFoundStep3({ onContinue, saving }: NotFoundStep3Props
         fetchSubscriptionPrice();
     }, []);
 
-    const discountedPrice = subscriptionPrice - 10; // $10 off
+    const discountedPrice = Math.max(0, subscriptionPrice - 10); // $10 off, minimum 0
 
     const reasons = [
         {
@@ -168,8 +169,8 @@ export default function NotFoundStep3({ onContinue, saving }: NotFoundStep3Props
             </div>
 
             <div className="space-y-3 pt-4">
-                <button className="w-full px-6 py-3 bg-[#4ABF71] text-white font-bold rounded-lg hover:bg-[#3da562] transition-colors font-dm-sans text-lg">
-                    Get $10 off | ${discountedPrice.toFixed(2)} <span className="line-through">${subscriptionPrice.toFixed(2)}</span>
+                <button className="w-full px-6 py-3 bg-[#4ABF71] text-white font-bold rounded-lg hover:bg-[#3da562] transition-colors font-dm-sans text-lg" onClick={onGetDiscount}>
+                    Get $10 off | ${discountedPrice.toFixed(2)} <span className="line-through text-sm">${subscriptionPrice.toFixed(2)}</span>
                 </button>
                 <button
                     onClick={() => {
