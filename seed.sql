@@ -33,15 +33,16 @@ CREATE TABLE IF NOT EXISTS cancellations (
   companies_emailed_bucket TEXT CHECK (companies_emailed_bucket IN ('0', '1-5', '6-20', '20+')),
   interviews_bucket TEXT CHECK (interviews_bucket IN ('0', '1-2', '3-5', '5+')),
   feedback TEXT CHECK (
-    (feedback IS NULL) 
-    OR (char_length(trim(feedback)) BETWEEN 25 AND 1000)
+    (feedback IS NULL)
+    OR (reason = 'too_expensive' AND char_length(trim(feedback)) >= 1)
+    OR (reason != 'too_expensive' AND char_length(trim(feedback)) BETWEEN 25 AND 1000)
   ),
   has_lawyer BOOLEAN,
   visa TEXT CHECK (
-    (visa IS NULL) 
+    (visa IS NULL)
     OR (char_length(trim(visa)) BETWEEN 1 AND 255)
   ),
-  reason TEXT,
+  reason TEXT CHECK (reason IN ('too_expensive', 'not_helpful', 'not_relevant', 'not_moving', 'other')),
   accepted_downsell BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

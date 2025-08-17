@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 interface FoundStep3Props {
-    found_through_mm: boolean;
+    found_with_mm: boolean;
     has_lawyer: boolean | null;
     onChangeHasLawyer: (value: boolean) => void;
     visa: string;
@@ -14,7 +14,7 @@ interface FoundStep3Props {
 }
 
 export default function FoundStep3({
-    found_through_mm,
+    found_with_mm,
     has_lawyer,
     onChangeHasLawyer,
     visa,
@@ -75,8 +75,8 @@ export default function FoundStep3({
 
     return (
         <div className="space-y-4 pb-40 md:pb-0">
-            {/* Main Heading - Conditional based on found_through_mm */}
-            {found_through_mm ? (
+            {/* Main Heading - Conditional based on found_with_mm */}
+            {found_with_mm ? (
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900 font-dm-sans">
                     We helped you land the job, now let's help you secure your visa.
                 </h2>

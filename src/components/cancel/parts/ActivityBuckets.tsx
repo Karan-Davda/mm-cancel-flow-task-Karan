@@ -26,6 +26,13 @@ export function ActivityBuckets({
   onChangeInterviews,
   labels,
 }: Props) {
+  // Debug: Log the values received
+  console.log('ActivityBuckets received values:', {
+    roles_applied_bucket,
+    companies_emailed_bucket,
+    interviews_bucket
+  });
+
   return (
     <div className="space-y-6">
       <BucketRow<BucketA>
@@ -61,28 +68,36 @@ function BucketRow<T extends string>({
   value: T | null;
   onChange: (v: T) => void;
 }) {
+  // Debug: Log the selection logic
+  console.log(`BucketRow "${label}" - value:`, value, 'options:', options);
+  
   return (
     <div>
       <label className="block text-[15px] font-medium text-gray-800 mb-3">
         {label}
       </label>
       <div className="grid grid-cols-4 gap-3">
-        {options.map((opt) => (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onChange(opt)}
-            className={[
-              'h-10 rounded-md text-[15px] font-medium',
-              'transition-all duration-200',
-              value === opt
-                ? 'bg-[#9A6FFF] text-white'
-                : 'bg-stone-200/50 text-gray-600 hover:bg-stone-300',
-            ].join(' ')}
-          >
-            {opt}
-          </button>
-        ))}
+        {options.map((opt) => {
+          const isSelected = value === opt;
+          console.log(`Option "${opt}" - isSelected:`, isSelected, 'value === opt:', value === opt);
+          
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onChange(opt)}
+              className={[
+                'h-10 rounded-md text-[15px] font-medium',
+                'transition-all duration-200',
+                isSelected
+                  ? 'bg-[#9A6FFF] text-white'
+                  : 'bg-stone-200/50 text-gray-600 hover:bg-stone-300',
+              ].join(' ')}
+            >
+              {opt}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
