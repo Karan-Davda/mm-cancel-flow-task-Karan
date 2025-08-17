@@ -1,129 +1,130 @@
-# Migrate Mate - Subscription Cancellation Flow Challenge
+# Migrate Mate - Cancellation Flow System
 
 ## Overview
+A comprehensive subscription cancellation flow system built with Next.js, featuring A/B testing for downsell optimization, secure API endpoints, and responsive mobile-first design.
 
-Convert an existing Figma design into a fully-functional subscription-cancellation flow for Migrate Mate. This challenge tests your ability to implement pixel-perfect UI, handle complex business logic, and maintain security best practices.
+## Architecture Decisions
 
-## Objective
+### 1. **Component-Based Modal Architecture**
+- **Single Modal Container**: `SubscriptionCancellationModal` orchestrates all flows
+- **Step Components**: Modular components for each step (FoundStep1, NotFoundStep1, etc.)
+- **State Management**: Custom hooks (`useCancellationState`, `useCancellationAPI`) for clean separation
+- **Flow Navigation**: Utility functions (`getFlowStep`, `getImageVisibility`) for consistent behavior
 
-Implement the Figma-designed cancellation journey exactly on mobile + desktop, persist outcomes securely, and instrument the A/B downsell logic.
+### 2. **Database Schema Design**
+- **Single Table Approach**: `cancellations` table stores all flow data
+- **Progressive Patching**: Only relevant fields sent in API requests
+- **Variant Persistence**: `downsell_variant` assigned once, reused across sessions
+- **Active Row Constraint**: Unique index ensures one active cancellation per user
 
-## What's Provided
+### 3. **API Route Structure**
+- **Server-Only Endpoints**: Supabase service role for database operations
+- **CSRF Protection**: Cookie-based token validation
+- **Progressive Updates**: PATCH endpoint handles partial data updates
+- **Error Handling**: Constraint violation handling with user-friendly messages
 
-This repository contains:
-- ✅ Next.js + TypeScript + Tailwind scaffold
-- ✅ `seed.sql` with users table (25/29 USD plans) and empty cancellations table
-- ✅ Local Supabase configuration for development
-- ✅ Basic Supabase client setup in `src/lib/supabase.ts`
+## Security Implementation
 
-## Tech Stack (Preferred)
+### 1. **Authentication & Authorization**
+- **Server-Side Only**: All database operations use Supabase service role
+- **Row Level Security**: RLS policies enforce user data isolation
+- **Mock User ID**: Environment variable for development/testing
 
-- **Next.js** with App Router
-- **React** with TypeScript
-- **Tailwind CSS** for styling
-- **Supabase** (Postgres + Row-Level Security)
+### 2. **Input Validation & Sanitization**
+- **Server-Side Normalization**: UI labels converted to canonical DB tokens
+- **Constraint Validation**: Database CHECK constraints prevent invalid data
+- **CSRF Protection**: Token validation on all POST requests
+- **SQL Injection Prevention**: Supabase client with parameterized queries
 
-> **Alternative stacks allowed** if your solution:
-> 1. Runs with `npm install && npm run dev`
-> 2. Persists to a Postgres-compatible database
-> 3. Enforces table-level security
+### 3. **Data Privacy**
+- **User Isolation**: Each user sees only their cancellation data
+- **No Stack Traces**: Error responses hide internal implementation details
+- **Secure Headers**: Content-Type and CSRF token validation
 
-## Must-Have Features
+## A/B Testing Approach
 
-### 1. Progressive Flow (Figma Design)
-- Implement the exact cancellation journey from provided Figma
-- Ensure pixel-perfect fidelity on both mobile and desktop
-- Handle all user interactions and state transitions
+### 1. **Downsell Variant Assignment**
+- **Random Assignment**: `crypto.randomInt(0, 2)` for variants A/B
+- **Persistent Storage**: Variant stored in database, reused on resume
+- **Flow Control**: Variant A skips offer, Variant B shows offer first
 
-### 2. Deterministic A/B Testing (50/50 Split)
-- **On first entry**: Assign variant via cryptographically secure RNG
-- **Persist** variant to `cancellations.downsell_variant` field
-- **Reuse** variant on repeat visits (never re-randomize)
+### 2. **Variant Logic**
+```typescript
+// Variant A: Skip offer, go directly to usage survey
+if (downsell_variant === 'A') {
+  // Navigate to NotFoundStep2 (Usage/Reasons)
+}
 
-**Variant A**: No downsell screen
-**Variant B**: Show "$10 off" offer
-- Price $25 → $15, Price $29 → $19
-- **Accept** → Log action, take user back to profile page (NO ACTUAL PAYMENT PROCESSING REQUIRED)
-- **Decline** → Continue to reason selection in flow
+// Variant B: Show offer first
+if (downsell_variant === 'B') {
+  if (accepted_downsell === null) {
+    // Show NotFoundStep1 (Offer)
+  } else if (accepted_downsell === true) {
+    // Show DownSellAccepted
+  } else {
+    // Continue to NotFoundStep2
+  }
+}
+```
 
-### 3. Data Persistence
-- Mark subscription as `pending_cancellation` in database
-- Create cancellation record with:
-  - `user_id`
-  - `downsell_variant` (A or B)
-  - `reason` (from user selection)
-  - `accepted_downsell` (boolean)
-  - `created_at` (timestamp)
+### 3. **Success Metrics**
+- **Conversion Rate**: Downsell acceptance percentage by variant
+- **User Journey**: Flow completion rates for each path
+- **Revenue Impact**: Subscription price changes after downsell
 
-### 4. Security Requirements
-- **Row-Level Security (RLS)** policies
-- **Input validation** on all user inputs
-- **CSRF/XSS protection**
-- Secure handling of sensitive data
+## Technical Features
 
-### 5. Reproducible Setup
-- `npm run db:setup` creates schema and seed data (local development)
-- Clear documentation for environment setup
+### 1. **Responsive Design**
+- **Mobile-First**: Tailwind CSS with mobile-specific layouts
+- **Dynamic Modal Sizing**: Width adjusts based on content type
+- **Fixed Bottom Buttons**: Mobile-optimized button positioning
 
-## Out of Scope
+### 2. **State Management**
+- **Resume Functionality**: Users can continue from where they left off
+- **Form Prefilling**: Previous selections restored from database
+- **Progressive Validation**: Required fields checked at each step
 
-- **Payment processing** - Stub with comments only
-- **User authentication** - Use mock user data
-- **Email notifications** - Not required
-- **Analytics tracking** - Focus on core functionality
-
-## Getting Started
-
-1. **Clone this repository** `git clone [repo]`
-2. **Install dependencies**: `npm install`
-3. **Set up local database**: `npm run db:setup`
-4. **Start development**: `npm run dev`
+### 3. **Performance Optimizations**
+- **Lazy Loading**: Components loaded only when needed
+- **Memoized Hooks**: State updates optimized with React.memo
+- **Efficient Queries**: Single database calls for active cancellation data
 
 ## Database Schema
 
-The `seed.sql` file provides a **starting point** with:
-- `users` table with sample users
-- `subscriptions` table with $25 and $29 plans
-- `cancellations` table (minimal structure - **you'll need to expand this**)
-- Basic RLS policies (enhance as needed)
+```sql
+CREATE TABLE cancellations (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  subscription_id INTEGER REFERENCES subscriptions(id),
+  found_job BOOLEAN,
+  found_with_mm BOOLEAN,
+  downsell_variant TEXT CHECK (downsell_variant IN ('A', 'B')),
+  accepted_downsell BOOLEAN,
+  roles_applied_bucket TEXT CHECK (roles_applied_bucket IN ('0', '1-5', '6-20', '20+')),
+  companies_emailed_bucket TEXT CHECK (companies_emailed_bucket IN ('0', '1-2', '3-5', '5+')),
+  interviews_bucket TEXT CHECK (interviews_bucket IN ('0', '1-2', '3-5', '5+')),
+  has_lawyer BOOLEAN,
+  visa TEXT,
+  reason TEXT CHECK (reason IN ('too_expensive', 'not_helpful', 'not_relevant', 'not_moving', 'other')),
+  feedback TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
 
-### Important: Schema Design Required
+-- Ensure one active cancellation per user
+CREATE UNIQUE INDEX idx_cancellations_active_per_user
+ON cancellations (user_id)
+WHERE accepted_downsell IS NULL AND reason IS NULL;
+```
 
-The current `cancellations` table is intentionally minimal. You'll need to:
-- **Analyze the cancellation flow requirements** from the Figma design
-- **Design appropriate table structure(s)** to capture all necessary data
-- **Consider data validation, constraints, and relationships**
-- **Ensure the schema supports the A/B testing requirements**
+## Development Setup
 
-## Evaluation Criteria
+```bash
+npm install
+npm run dev
+```
 
-- **Functionality (40%)**: Feature completeness and correctness
-- **Code Quality (25%)**: Clean, maintainable, well-structured code
-- **Pixel/UX Fidelity (15%)**: Accuracy to Figma design
-- **Security (10%)**: Proper RLS, validation, and protection
-- **Documentation (10%)**: Clear README and code comments
-
-## Deliverables
-
-1. **Working implementation** in this repository
-2. **NEW One-page README.md (replace this)** (≤600 words) explaining:
-   - Architecture decisions
-   - Security implementation
-   - A/B testing approach
-3. **Clean commit history** with meaningful messages
-
-## Timeline
-
-Submit your solution within **72 hours** of receiving this repository.
-
-## AI Tooling
-
-Using Cursor, ChatGPT, Copilot, etc. is **encouraged**. Use whatever accelerates your development—just ensure you understand the code and it runs correctly.
-
-## Questions?
-
-Review the challenge requirements carefully. If you have questions about specific implementation details, make reasonable assumptions and document them in your README.
-
----
-
-**Good luck!** We're excited to see your implementation.
+Environment variables required:
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `MOCK_USER_ID` (for development)
