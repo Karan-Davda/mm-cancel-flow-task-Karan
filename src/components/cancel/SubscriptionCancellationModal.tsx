@@ -72,14 +72,7 @@ export default function SubscriptionCancellationModal({
 
   // Debug state changes for activity buckets and found_with_mm
   useEffect(() => {
-    console.log('State changed - Activity buckets and found_with_mm:', {
-      found_with_mm,
-      roles_applied_bucket,
-      companies_emailed_bucket,
-      interviews_bucket,
-      flow,
-      step
-    });
+    // Removed debug logging
   }, [found_with_mm, roles_applied_bucket, companies_emailed_bucket, interviews_bucket, flow, step]);
 
   // Fetch subscription data when NotFound flow starts
@@ -102,111 +95,93 @@ export default function SubscriptionCancellationModal({
 
   // Resume and prefill functionality - fetch active cancellation on mount
   useEffect(() => {
-    console.log('useEffect triggered - isOpen:', isOpen, 'flow:', flow);
-    
-    if (isOpen && !flow) {
-      console.log('Modal is open and no flow set, fetching active cancellation...');
-      const resumeActiveCancellation = async () => {
-        try {
-          console.log('Fetching active cancellation to resume...')
-          const response = await fetch('/api/cancel/active')
-          
-          if (response.status === 204) {
-            console.log('No active cancellation found, showing initial choice screen')
-            return
-          }
-          
-          if (!response.ok) {
-            console.error('Failed to fetch active cancellation:', response.status)
-            return
-          }
-          
-          const activeCancellation = await response.json()
-          console.log('Active cancellation found:', activeCancellation)
-          console.log('found_job value from database:', activeCancellation.found_job)
-          console.log('found_job type:', typeof activeCancellation.found_job)
-          
-          // Store cancellation ID and downsell variant
-          setCancellationId(activeCancellation.id)
-          setDownsellVariant(activeCancellation.downsell_variant)
-          
-          // Prefill all the fields from the database
-          if (activeCancellation.found_with_mm !== null) {
-            console.log('Prefilling found_with_mm:', activeCancellation.found_with_mm)
-            setFoundWithMm(activeCancellation.found_with_mm)
-          }
-          if (activeCancellation.roles_applied_bucket) {
-            console.log('Prefilling roles_applied_bucket:', activeCancellation.roles_applied_bucket)
-            setRolesAppliedBucket(activeCancellation.roles_applied_bucket as any)
-          }
-          if (activeCancellation.companies_emailed_bucket) {
-            console.log('Prefilling companies_emailed_bucket:', activeCancellation.companies_emailed_bucket)
-            setCompaniesEmailedBucket(activeCancellation.companies_emailed_bucket as any)
-          }
-          if (activeCancellation.interviews_bucket) {
-            console.log('Prefilling interviews_bucket:', activeCancellation.interviews_bucket)
-            setInterviewsBucket(activeCancellation.interviews_bucket as any)
-          }
-          if (activeCancellation.feedback) setFeedback(activeCancellation.feedback)
-          if (activeCancellation.has_lawyer !== null) setHasLawyer(activeCancellation.has_lawyer)
-          if (activeCancellation.visa) setVisa(activeCancellation.visa)
-          
-          // Automatically set flow and step based on found_job - skip initial choice screen
-          if (activeCancellation.found_job === true) {
-            // Found Job Flow - go directly to Step-1
-            console.log('Found Job: going directly to Found Step-1')
-            console.log('Setting flow to "found" and step to 1')
-            setFlow('found')
-            setStep(1)
-          } else if (activeCancellation.found_job === false) {
-            // NotFound Flow - go directly to appropriate step
-            console.log('NotFound Job: going directly to appropriate step')
-            console.log('Setting flow to "still"')
-            setFlow('still')
+    if (isOpen && !flow && !cancellationId) {
+      // Add a small delay to prevent rapid state changes
+      const timeoutId = setTimeout(() => {
+        const resumeActiveCancellation = async () => {
+          try {
+            const response = await fetch('/api/cancel/active')
             
-            if (activeCancellation.downsell_variant === 'B' && activeCancellation.accepted_downsell === null) {
-              // Variant B: Show offer step (Step-1)
-              console.log('Variant B: going to offer step (Step-1)')
-              console.log('Setting notFoundStep to 1')
-              setNotFoundStep(1)
-            } else {
-              // Variant A or already decided: Skip to step 2 (Usage Survey)
-              console.log('Variant A or decided: going to step 2 (Usage Survey)')
-              console.log('Setting notFoundStep to 2')
-              setNotFoundStep(2)
-              if (activeCancellation.accepted_downsell !== null) {
-                console.log('Setting acceptedDownsell to:', activeCancellation.accepted_downsell)
-                setAcceptedDownsell(activeCancellation.accepted_downsell)
-              }
+            if (response.status === 204) {
+              return
             }
-          } else {
-            console.log('found_job is null or undefined, will show initial choice screen')
-            console.log('found_job value:', activeCancellation.found_job)
-            console.log('found_job === true:', activeCancellation.found_job === true)
-            console.log('found_job === false:', activeCancellation.found_job === false)
+            
+            if (!response.ok) {
+              console.error('Failed to fetch active cancellation:', response.status)
+              return
+            }
+            
+            const activeCancellation = await response.json()
+            
+            // Store cancellation ID and downsell variant
+            setCancellationId(activeCancellation.id)
+            setDownsellVariant(activeCancellation.downsell_variant)
+            
+            // Prefill all the fields from the database
+            if (activeCancellation.found_with_mm !== null) {
+              setFoundWithMm(activeCancellation.found_with_mm)
+            }
+            if (activeCancellation.roles_applied_bucket) {
+              setRolesAppliedBucket(activeCancellation.roles_applied_bucket as any)
+            }
+            if (activeCancellation.companies_emailed_bucket) {
+              setCompaniesEmailedBucket(activeCancellation.companies_emailed_bucket as any)
+            }
+            if (activeCancellation.interviews_bucket) {
+              setInterviewsBucket(activeCancellation.interviews_bucket as any)
+            }
+            if (activeCancellation.feedback) setFeedback(activeCancellation.feedback)
+            if (activeCancellation.has_lawyer !== null) setHasLawyer(activeCancellation.has_lawyer)
+            if (activeCancellation.visa) setVisa(activeCancellation.visa)
+            
+            // Automatically set flow and step based on found_job - skip initial choice screen
+            if (activeCancellation.found_job === true) {
+              // Found Job Flow - go directly to Step-1
+              setFlow('found')
+              setStep(1)
+            } else if (activeCancellation.found_job === false) {
+              // NotFound Flow - go directly to appropriate step
+              setFlow('still')
+              
+              if (activeCancellation.downsell_variant === 'B' && activeCancellation.accepted_downsell === null) {
+                // Variant B: Show offer step (Step-1)
+                setNotFoundStep(1)
+              } else if (activeCancellation.downsell_variant === 'A') {
+                // Variant A: Always start with Step-1 (Offer step)
+                setNotFoundStep(1)
+              } else if (activeCancellation.accepted_downsell !== null) {
+                // User has already made a decision on the offer, go to Step-2
+                setNotFoundStep(2)
+                setAcceptedDownsell(activeCancellation.accepted_downsell)
+              } else {
+                // Default case: start with Step-1
+                setNotFoundStep(1)
+              }
+            } else {
+              // found_job is null - this means user clicked back from step 1
+              // Don't set flow or step - let the UI show the initial choice screen
+              // But still store the cancellation ID for future use
+            }
+            
+          } catch (error) {
+            console.error('Error resuming active cancellation:', error)
           }
-          
-        } catch (error) {
-          console.error('Error resuming active cancellation:', error)
         }
-      }
+        
+        resumeActiveCancellation()
+      }, 100); // Small delay to prevent rapid state changes
       
-      resumeActiveCancellation()
-    } else {
-      console.log('useEffect condition not met - isOpen:', isOpen, 'flow:', flow);
+      // Cleanup timeout if component unmounts or dependencies change
+      return () => clearTimeout(timeoutId);
     }
-  }, [isOpen, flow])
+  }, [isOpen, flow, cancellationId]) // Only depend on these three values
 
   // Additional useEffect to ensure flow navigation runs when modal opens
   useEffect(() => {
     if (isOpen) {
-      console.log('Modal opened - checking if we need to navigate to specific flow');
-      
       // Only run this if we don't already have a flow set
       if (!flow) {
-        console.log('No flow set yet, will let the other useEffect handle it');
-      } else {
-        console.log('Flow already set to:', flow, 'step:', step, 'notFoundStep:', notFoundStep);
+        // No flow set yet, will let the other useEffect handle it
       }
     }
   }, [isOpen])
@@ -299,6 +274,19 @@ export default function SubscriptionCancellationModal({
       if (companies_emailed_bucket) patchData.companies_emailed_bucket = companies_emailed_bucket
       if (interviews_bucket) patchData.interviews_bucket = interviews_bucket
 
+      console.log('=== STEP 1 DEBUG ===')
+      console.log('cancellationId:', cancellationId)
+      console.log('found_with_mm type:', typeof found_with_mm)
+      console.log('found_with_mm value:', found_with_mm)
+      console.log('Step 1 data being sent:', patchData)
+      console.log('Current found_with_mm state:', found_with_mm)
+      console.log('All current state:', {
+        found_with_mm,
+        roles_applied_bucket,
+        companies_emailed_bucket,
+        interviews_bucket
+      })
+
       const response = await fetch('/api/cancel/progress', {
         method: 'POST',
         headers: {
@@ -315,8 +303,12 @@ export default function SubscriptionCancellationModal({
         })
       })
 
+      console.log('API Response status:', response.status)
+      console.log('API Response headers:', Object.fromEntries(response.headers.entries()))
+
       if (!response.ok) {
         const errorData = await response.json()
+        console.error('API Error response:', errorData)
         // Handle field-specific errors
         if (errorData.field && errorData.message) {
           setError(`${errorData.field}: ${errorData.message}`)
@@ -327,15 +319,49 @@ export default function SubscriptionCancellationModal({
       }
 
       const data = await response.json()
+      console.log('=== API RESPONSE ===')
+      console.log('Full API response:', data)
+      console.log('Saved data:', data.saved)
+      console.log('found_with_mm in response:', data.saved?.found_with_mm)
+      
       if (data.cancellationId) {
         setCancellationId(data.cancellationId)
       }
+
+      // Update local state with the saved data from API response
+      if (data.saved) {
+        console.log('Updating local state with saved data...')
+        if (data.saved.found_with_mm !== undefined) {
+          console.log('Setting found_with_mm to:', data.saved.found_with_mm)
+          setFoundWithMm(data.saved.found_with_mm)
+        }
+        if (data.saved.roles_applied_bucket !== undefined) {
+          console.log('Setting roles_applied_bucket to:', data.saved.roles_applied_bucket)
+          setRolesAppliedBucket(data.saved.roles_applied_bucket)
+        }
+        if (data.saved.companies_emailed_bucket !== undefined) {
+          console.log('Setting companies_emailed_bucket to:', data.saved.companies_emailed_bucket)
+          setCompaniesEmailedBucket(data.saved.companies_emailed_bucket)
+        }
+        if (data.saved.interviews_bucket !== undefined) {
+          console.log('Setting interviews_bucket to:', data.saved.interviews_bucket)
+          setInterviewsBucket(data.saved.interviews_bucket)
+        }
+      }
+
+      console.log('State after update:', {
+        found_with_mm,
+        roles_applied_bucket,
+        companies_emailed_bucket,
+        interviews_bucket
+      })
 
       // Move to step 2
       setStep(2)
       setError(null)
       
     } catch (err) {
+      console.error('Error in handleStep1Continue:', err)
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setIsSubmitting(false)
@@ -458,7 +484,6 @@ export default function SubscriptionCancellationModal({
 
   // NotFound Flow Handlers
   const handleAcceptDownsell = async () => {
-    console.log('handleAcceptDownsell called');
     try {
       const response = await fetch('/api/cancel/progress', {
         method: 'POST',
@@ -478,25 +503,19 @@ export default function SubscriptionCancellationModal({
         })
       })
 
-      console.log('Response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('API error:', errorData);
         setError(errorData.message || 'Failed to save data')
         return
       }
 
       const data = await response.json()
-      console.log('API response data:', data);
       
       if (data.cancellationId) {
         setCancellationId(data.cancellationId)
       }
       
-      console.log('Setting accepted_downsell to true');
       setAcceptedDownsell(true)
-      console.log('accepted_downsell state after set:', accepted_downsell);
       // Don't change notFoundStep here, just set accepted_downsell
     } catch (error) {
       console.error('Error accepting downsell:', error)
@@ -587,15 +606,12 @@ export default function SubscriptionCancellationModal({
   }
 
   const handleNotFoundStep2Continue = () => {
-    console.log('handleNotFoundStep2Continue called - showing SuggestedDreamRoles');
     setShowSuggestedDreamRoles(true);
   }
 
   const handleNotFoundStep3Continue = async (reason: string, feedback: string) => {
-    console.log('handleNotFoundStep3Continue called with:', { reason, feedback, cancellationId });
     
     if (!cancellationId) {
-      console.log('No cancellationId, returning early');
       return;
     }
     
@@ -603,7 +619,6 @@ export default function SubscriptionCancellationModal({
     setError(null)
 
     try {
-      console.log('Making API call to /api/cancel/progress');
       const response = await fetch('/api/cancel/progress', {
         method: 'POST',
         headers: {
@@ -623,24 +638,18 @@ export default function SubscriptionCancellationModal({
         })
       })
 
-      console.log('API response status:', response.status);
-      
       if (!response.ok) {
         const errorData = await response.json()
-        console.log('API error:', errorData);
         setError(errorData.message || 'Failed to save cancellation reason')
         return
       }
 
       const responseData = await response.json()
-      console.log('API success response:', responseData);
-
+      
       // Show success screen instead of closing modal
-      console.log('Setting showNotFoundSuccess to true');
       setShowNotFoundSuccess(true)
       
     } catch (err) {
-      console.error('API call error:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setIsSubmitting(false)
@@ -653,21 +662,6 @@ export default function SubscriptionCancellationModal({
   }
 
   if (!isOpen) return null
-
-  // Debug logging for modal state
-  console.log('Modal render state:', { 
-    flow, 
-    step, 
-    notFoundStep,
-    accepted_downsell,
-    showSuccessScreen,
-    showNotFoundSuccess,
-    has_lawyer,
-    found_with_mm,
-    roles_applied_bucket,
-    companies_emailed_bucket,
-    interviews_bucket
-  })
 
   return (
     <>
@@ -728,6 +722,8 @@ export default function SubscriptionCancellationModal({
                         setHasLawyer(null)
                         setVisa('')
                         setError(null)
+                        // Force a re-check of the database by resetting cancellationId
+                        setCancellationId(null)
                       }
                     } catch (error) {
                       console.error('Error updating found_job:', error)
@@ -776,6 +772,8 @@ export default function SubscriptionCancellationModal({
                         setCompaniesEmailedBucket(null)
                         setInterviewsBucket(null)
                         setError(null)
+                        // Force a re-check of the database by resetting cancellationId
+                        setCancellationId(null)
                       }
                     } catch (error) {
                       console.error('Error updating found_job:', error)
@@ -1074,10 +1072,10 @@ export default function SubscriptionCancellationModal({
               {/* Left section - Content and buttons */}
               <div className="flex-1 p-4 md:p-4 md:pr-2">
                 <div className="w-full max-w-none">
+                  
                   {!flow ? (
-                    // Initial choice screen
+                    // Initial choice screen - show when no flow set (regardless of cancellationId)
                     (() => {
-                      console.log('Rendering initial choice screen - no flow set yet');
                       return (
                         <>
                           {/* Headline */}
@@ -1125,24 +1123,6 @@ export default function SubscriptionCancellationModal({
                   ) : flow === 'found' && step === 1 ? (
                     // Found Flow - Step 1
                     (() => {
-                      console.log('Rendering FoundStep1 with prefilled values:', {
-                        found_with_mm,
-                        roles_applied_bucket,
-                        companies_emailed_bucket,
-                        interviews_bucket
-                      });
-                      
-                      // Debug: Check if state values are properly set
-                      console.log('FoundStep1 state check:', {
-                        'found_with_mm type': typeof found_with_mm,
-                        'found_with_mm value': found_with_mm,
-                        'roles_applied_bucket type': typeof roles_applied_bucket,
-                        'roles_applied_bucket value': roles_applied_bucket,
-                        'companies_emailed_bucket type': typeof companies_emailed_bucket,
-                        'companies_emailed_bucket value': companies_emailed_bucket,
-                        'interviews_bucket type': typeof interviews_bucket,
-                        'interviews_bucket value': interviews_bucket
-                      });
                       
                       return (
                         <FoundStep1
@@ -1190,21 +1170,14 @@ export default function SubscriptionCancellationModal({
                   ) : flow === 'still' ? (
                     // NotFound Flow - Render based on state
                     (() => {
-                      console.log('Rendering NotFound flow with:', { 
-                        notFoundStep, 
-                        accepted_downsell, 
-                        flow 
-                      });
                       
                       if (showNotFoundSuccess) {
-                        console.log('Rendering NotFoundSuccessScreen');
                         return (
                           <NotFoundSuccessScreen
                             onBackToJobs={onClose}
                           />
                         );
                       } else if (Boolean(accepted_downsell) && notFoundStep === 3) {
-                        console.log('Rendering NotFoundStep3 (Cancellation Reason)');
                         return (
                           <NotFoundStep3
                             onContinue={handleNotFoundStep3Continue}
@@ -1212,7 +1185,6 @@ export default function SubscriptionCancellationModal({
                           />
                         );
                       } else if (showSuggestedDreamRoles) {
-                        console.log('Rendering SuggestedDreamRoles');
                         return (
                           <SuggestedDreamRoles
                             onContinue={() => handleNotFoundStep3Continue('', '')}
@@ -1220,7 +1192,6 @@ export default function SubscriptionCancellationModal({
                           />
                         );
                       } else if (Boolean(accepted_downsell)) {
-                        console.log('Rendering DownSellAccepted');
                         return (
                           <DownSellAccepted
                             onContinue={handleNotFoundStep2Continue}
@@ -1229,7 +1200,6 @@ export default function SubscriptionCancellationModal({
                           />
                         );
                       } else if (notFoundStep === 1) {
-                        console.log('Rendering NotFoundStep1');
                         return (
                           <NotFoundStep1
                             onAcceptDownsell={handleAcceptDownsell}
@@ -1238,12 +1208,6 @@ export default function SubscriptionCancellationModal({
                           />
                         );
                       } else if (notFoundStep === 2) {
-                        console.log('Rendering NotFoundStep2');
-                        console.log('NotFoundStep2 prefilled values:', {
-                          roles_applied_bucket,
-                          companies_emailed_bucket,
-                          interviews_bucket
-                        });
                         return (
                           <NotFoundStep2
                             roles_applied_bucket={roles_applied_bucket}
@@ -1259,7 +1223,6 @@ export default function SubscriptionCancellationModal({
                           />
                         );
                       } else if (notFoundStep === 3) {
-                        console.log('Rendering NotFoundStep3');
                         return (
                           <NotFoundStep3
                             onContinue={handleNotFoundStep3Continue}
@@ -1267,22 +1230,10 @@ export default function SubscriptionCancellationModal({
                           />
                         );
                       } else {
-                        console.log('No NotFound step matched, showing debug');
                         return (
-                          <div className="space-y-6 bg-yellow-100 p-6 rounded-lg border-2 border-yellow-400">
-                            <h3 className="text-lg font-bold text-yellow-800">Debug: NotFound Flow State</h3>
-                            <div className="text-sm text-yellow-700 space-y-2">
-                              <p>Flow: {flow}</p>
-                              <p>NotFoundStep: {notFoundStep}</p>
-                              <p>Accepted Downsell: {String(accepted_downsell)}</p>
-                              <p>Flow === 'still': {String(flow === 'still')}</p>
-                              <p>notFoundStep === 1: {String(notFoundStep === 1)}</p>
-                              <p>accepted_downsell === true: {String(Boolean(accepted_downsell))}</p>
-                              <p>Condition for NotFoundStep1: {String(flow === 'still' && notFoundStep === 1)}</p>
-                              <p>Condition for DownSellAccepted: {String(flow === 'still' && Boolean(accepted_downsell))}</p>
-                              <p>Condition for NotFoundStep2: {String(flow === 'still' && notFoundStep === 2)}</p>
-                              <p>Condition for NotFoundStep3: {String(flow === 'still' && notFoundStep === 3)}</p>
-                            </div>
+                          <div className="space-y-6 bg-red-100 p-6 rounded-lg border-2 border-red-400">
+                            <h3 className="text-lg font-bold text-red-800">Error: Invalid NotFound Flow State</h3>
+                            <p className="text-sm text-red-700">Please refresh the page and try again.</p>
                           </div>
                         );
                       }

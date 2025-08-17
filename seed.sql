@@ -43,9 +43,15 @@ CREATE TABLE IF NOT EXISTS cancellations (
     OR (char_length(trim(visa)) BETWEEN 1 AND 255)
   ),
   reason TEXT CHECK (reason IN ('too_expensive', 'not_helpful', 'not_relevant', 'not_moving', 'other')),
-  accepted_downsell BOOLEAN DEFAULT FALSE,
+  accepted_downsell BOOLEAN DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add unique constraint to ensure only one active cancellation row per user
+-- Active means: accepted_downsell IS NULL AND reason IS NULL
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cancellations_active_per_user 
+ON cancellations (user_id) 
+WHERE accepted_downsell IS NULL AND reason IS NULL;
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;

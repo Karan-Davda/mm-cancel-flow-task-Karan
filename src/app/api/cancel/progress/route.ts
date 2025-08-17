@@ -150,6 +150,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Create new cancellation
       const insertData: any = {
         user_id: mockUserId,
+        found_job: body.patch.found_job || null,
+        found_with_mm: body.patch.found_with_mm !== undefined ? body.patch.found_with_mm : null,
         accepted_downsell: body.patch.accepted_downsell || null,
         has_lawyer: body.patch.has_lawyer || null,
         roles_applied_bucket: normalizedRolesBucket || null,
@@ -233,6 +235,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         cancellationId: newCancellation.id,
         saved: {
           ...newCancellation,
+          found_with_mm: body.patch.found_with_mm,
           reason: normalizedReason,
           feedback: body.patch.feedback,
           roles_applied_bucket: normalizedRolesBucket,
@@ -245,6 +248,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Update existing cancellation
       const updateData: any = {
         found_job: body.patch.found_job !== undefined ? body.patch.found_job : activeCancellation.found_job,
+        found_with_mm: body.patch.found_with_mm !== undefined ? body.patch.found_with_mm : activeCancellation.found_with_mm,
         accepted_downsell: body.patch.accepted_downsell !== undefined ? body.patch.accepted_downsell : activeCancellation.accepted_downsell,
         has_lawyer: body.patch.has_lawyer !== undefined ? body.patch.has_lawyer : activeCancellation.has_lawyer,
         roles_applied_bucket: normalizedRolesBucket !== undefined ? normalizedRolesBucket : activeCancellation.roles_applied_bucket,
@@ -324,6 +328,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         cancellationId: updatedCancellation.id,
         saved: {
           ...updatedCancellation,
+          found_with_mm: body.patch.found_with_mm !== undefined ? body.patch.found_with_mm : activeCancellation.found_with_mm,
           reason: normalizedReason,
           feedback: body.patch.feedback,
           roles_applied_bucket: normalizedRolesBucket,
